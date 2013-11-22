@@ -372,7 +372,7 @@ namespace Week7
         public static void W7P8()
         {
             Random r = new Random();
-            int n = 100;
+            int n = 10;
             int n_test = 5000;
             int runs = 1000;
 
@@ -417,31 +417,9 @@ namespace Week7
                 SVMHelper svm = new SVMHelper( training_points );
                 svm.train();
 
-                // about 10% of my runs are coming through with no support vectors!?
                 if( svm._model.SV.Count() > 0 )
                 {
                     total_sv += svm._model.SV.Count();
-
-                    // W is the sum of alpha * xn * yn for each of the support vectors
-                    DenseVector wsvm = new DenseVector( 2 );
-                    for( int j = 0; j < svm._model.SV.Count(); j++ )
-                    {
-                        int yn = training_points[find_x( svm._model.SV[j][0].value_Renamed, svm._model.SV[j][1].value_Renamed, training_points )].fx;
-
-                        DenseVector xn = new DenseVector( 2 );
-                        xn[0] = svm._model.SV[j][0].value_Renamed;
-                        xn[1] = svm._model.SV[j][1].value_Renamed;
-
-                        xn.Multiply( (double)yn * svm._model.sv_coef[0][j] );
-                        wsvm = (DenseVector)wsvm.Add( xn );
-                    }
-
-                    // calculate b = 1/yn - wsvm_transpose * xn for any support vector
-                    DenseVector xsv = new DenseVector( 2 );
-                    xsv[0] = svm._model.SV[0][0].value_Renamed;
-                    xsv[1] = svm._model.SV[0][1].value_Renamed;
-                    int y_sv = training_points[find_x( xsv[0], xsv[1], training_points )].fx;
-                    double b = 1.0/(double)y_sv - xsv.DotProduct( wsvm );
 
                     // test SVM with test points
                     for( int j = 0; j < test_points.Count(); j++ )
@@ -449,7 +427,7 @@ namespace Week7
                         DenseVector xn = new DenseVector( 2 );
                         xn[0] = test_points[j].x;
                         xn[1] = test_points[j].y;
-                        int svm_y = Math.Sign( xn.DotProduct( wsvm ) + b );
+                        int svm_y = Math.Sign( xn.DotProduct( svm._w ) + svm._b );
                         if( svm_y != test_points[j].fx )
                         {
                             svm_fails_this_run++;

@@ -320,6 +320,8 @@ namespace LearningFromData
         public svm_problem _prob;
         public svm_parameter _param;
         public svm_model _model;
+        public DenseVector _w;
+        public double _b;
 
         public SVMHelper( Point[] x )
         {
@@ -365,12 +367,33 @@ namespace LearningFromData
                 _prob.x[j][1].index = 1;
                 _prob.x[j][1].value_Renamed = x[j].y;
             }
-
         }
 
         public void train()
         {
             _model = svm.svm_train( _prob, _param );
+
+            // w = _model.SV * _model.sv_coef
+            // b = -model.rho
+            // if _model.Label(1) == -1, multiply w and b by -1
+
+            // calculate w
+            _w = new DenseVector( _model.SV[0].Count() );
+            for( int i = 0; i < _model.SV.Count(); i++ )
+            {
+                for( int j = 0; j < _model.SV[i].Count(); j++ )
+                {
+                    _w[j] = _model.SV[i][j].value_Renamed * _model.sv_coef[0][i];
+                }
+            }
+
+            _b = _model.rho[0] * -1.0;
+
+            if( _model.label[0] == -1 )
+            {
+                _w.Multiply( -1.0 );
+                _b *= -1.0;
+            }
         }
     }
 }
