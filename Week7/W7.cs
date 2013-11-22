@@ -417,9 +417,9 @@ namespace Week7
                 SVMHelper svm = new SVMHelper( training_points );
                 svm.train();
 
-                if( svm._model.SV.Count() > 0 )
+                if( svm.model.SV.Count() > 0 )
                 {
-                    total_sv += svm._model.SV.Count();
+                    total_sv += svm.model.SV.Count();
 
                     // test SVM with test points
                     for( int j = 0; j < test_points.Count(); j++ )
@@ -427,7 +427,8 @@ namespace Week7
                         DenseVector xn = new DenseVector( 2 );
                         xn[0] = test_points[j].x;
                         xn[1] = test_points[j].y;
-                        int svm_y = Math.Sign( xn.DotProduct( svm._w ) + svm._b );
+                        int svm_y = Math.Sign( xn.DotProduct( svm.w ) + svm.b );
+
                         if( svm_y != test_points[j].fx )
                         {
                             svm_fails_this_run++;
@@ -456,20 +457,6 @@ namespace Week7
             Console.WriteLine( "SVM won " + svm_wins.ToString() + ", PLA won " + pla_wins.ToString() );
             Console.WriteLine( "Average # of SV was " + avg_sv.ToString() );
             Console.ReadLine();
-        }
-
-        public static int find_x( double x, double y, Point[] points )
-        {
-            int i = 0;
-            while( i < points.Count() )
-            {
-                if( points[i].x == x && points[i].y == y  )
-                {
-                    return i;
-                }
-                i++;
-            }
-            return -1;
         }
     }
 }

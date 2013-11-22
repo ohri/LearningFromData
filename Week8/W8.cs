@@ -19,11 +19,11 @@ namespace Week8
         {
             Point[] training_points = Point.ImportPointSet( @"c:\features.train" );
             SVMHelper svm = new SVMHelper( training_points );
-            svm._param.C = 0.1;
-            svm._param.gamma = 1;
-            svm._param.kernel_type = svm_parameter.POLY;
-            svm._param.coef0 = 1;
-            svm._param.degree = 2;
+            svm.param.C = 0.1;
+            svm.param.gamma = 1;
+            svm.param.kernel_type = svm_parameter.POLY;
+            svm.param.coef0 = 1;
+            svm.param.degree = 2;
 
             svm.train();
             

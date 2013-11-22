@@ -316,84 +316,116 @@ namespace LearningFromData
 
     public class SVMHelper
     {
-        public svm _svm;
-        public svm_problem _prob;
-        public svm_parameter _param;
-        public svm_model _model;
-        public DenseVector _w;
-        public double _b;
+        public svm svm;
+        public svm_problem prob;
+        public svm_parameter param;
+        public svm_model model;
+        public DenseVector w;
+        public double b;
 
         public SVMHelper( Point[] x )
         {
-            _prob = new svm_problem();
-            _svm = new svm();
-            _param = new svm_parameter();
+            prob = new svm_problem();
+            svm = new svm();
+            param = new svm_parameter();
 
             // these are defaults copied from the github java version
-            _param.svm_type = svm_parameter.C_SVC;
-            _param.kernel_type = svm_parameter.LINEAR;
-            _param.degree = 3;
-            _param.coef0 = 0;
-            _param.nu = 0.5;
-            _param.cache_size = 100;
-            _param.C = 10000;
-            _param.eps = .001;
-            _param.p = 0.1;
-            _param.shrinking = 1;
-            _param.probability = 0;
-            _param.nr_weight = 0;
-            _param.weight_label = new int[0];
-            _param.weight = new double[0];
-            _param.gamma = 0;
+            param.svm_type = svm_parameter.C_SVC;
+            param.kernel_type = svm_parameter.LINEAR;
+            param.degree = 3;
+            param.coef0 = 0;
+            param.nu = 0.5;
+            param.cache_size = 100;
+            param.C = 10000;
+            param.eps = .001;
+            param.p = 0.1;
+            param.shrinking = 1;
+            param.probability = 0;
+            param.nr_weight = 0;
+            param.weight_label = new int[0];
+            param.weight = new double[0];
+            param.gamma = 0.5;
 
             // put in the y's
-            _prob.y = new double[x.Count()];
+            prob.y = new double[x.Count()];
             for( int j = 0; j < x.Count(); j++ )
             {
-                _prob.y[j] = x[j].fx;
+                prob.y[j] = x[j].fx;
             }
 
-            _prob.l = _prob.y.Count();
+            prob.l = prob.y.Count();
 
             // put in the x's
-            _prob.x = new svm_node[x.Count()][];
+            prob.x = new svm_node[x.Count()][];
             for( int j = 0; j < x.Count(); j++ )
             {
-                _prob.x[j] = new svm_node[2];
-                _prob.x[j][0] = new svm_node();
-                _prob.x[j][0].index = 0;
-                _prob.x[j][0].value_Renamed = x[j].x;
-                _prob.x[j][1] = new svm_node();
-                _prob.x[j][1].index = 1;
-                _prob.x[j][1].value_Renamed = x[j].y;
+                prob.x[j] = new svm_node[2];
+                prob.x[j][0] = new svm_node();
+                prob.x[j][0].index = 0;
+                prob.x[j][0].value_Renamed = x[j].x;
+                prob.x[j][1] = new svm_node();
+                prob.x[j][1].index = 1;
+                prob.x[j][1].value_Renamed = x[j].y;
             }
         }
 
         public void train()
         {
-            _model = svm.svm_train( _prob, _param );
+            model = svm.svm_train( prob, param );
 
             // w = _model.SV * _model.sv_coef
             // b = -model.rho
             // if _model.Label(1) == -1, multiply w and b by -1
 
             // calculate w
-            _w = new DenseVector( _model.SV[0].Count() );
-            for( int i = 0; i < _model.SV.Count(); i++ )
+            w = new DenseVector( model.SV[0].Count() );
+            for( int i = 0; i < model.SV.Count(); i++ )
             {
-                for( int j = 0; j < _model.SV[i].Count(); j++ )
+                for( int j = 0; j < model.SV[i].Count(); j++ )
                 {
-                    _w[j] = _model.SV[i][j].value_Renamed * _model.sv_coef[0][i];
+                    w[j] += model.SV[i][j].value_Renamed * model.sv_coef[0][i];
                 }
             }
 
-            _b = _model.rho[0] * -1.0;
+            b = model.rho[0] * -1.0;
 
-            if( _model.label[0] == -1 )
+            // this is right out of their faq (as are the above descriptions)
+            // i believe the labels are the classifications (-1, 1), so it would appear
+            // to ALWAYS need to multiply these for the standard 1, -1 classification problem
+            if( model.label[0] == -1 )
             {
-                _w.Multiply( -1.0 );
-                _b *= -1.0;
+                w.Multiply( -1.0 );
+                b *= -1.0;
             }
+        }
+    }
+
+    public class Data
+    {
+        double[] x;
+        double y;
+
+        public Data( double[] _x )
+        {
+            x = _x;
+            y = 0;
+        }
+
+        public DenseVector AsDenseVector()
+        {
+            double[] copy_of_x = new double[x.Count()];
+            x.CopyTo( copy_of_x, 0 );
+            return new DenseVector( copy_of_x );
+        }
+
+        public static Data GetRandomData( int d, Random r )
+        {
+            double[] x = new double[3];
+            for( int i = 0; i < d; i++ )
+            {
+                x[i] = r.NextDouble() * 2.0 - 1.0;
+            }
+            return new Data( x );
         }
     }
 }
