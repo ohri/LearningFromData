@@ -225,20 +225,6 @@ namespace LearningFromData
             // create the target function
             Line l = Line.CreateRandomLine( r );
 
-            //var y = new DenseVector( num_points );
-            //for( int i = 0; i < num_points; i++ )
-            //{
-            //    y[i] = training_points[i].fx;
-            //}
-
-            //var X = new DenseMatrix( num_points, 3 );
-            //for( int i = 0; i < num_points; i++ )
-            //{
-            //    X[i, 0] = 1;
-            //    X[i, 1] = training_points[i].x;
-            //    X[i, 2] = training_points[i].y;
-            //}
-
             // train with linear regression
             // linear regression gives us a new equation for a line in 'one fell swoop'
             // w = Xdagger * y
@@ -254,6 +240,13 @@ namespace LearningFromData
             return (DenseVector)Xdagger.Multiply( y );
         }
 
+        public static int RunPerceptron( int num_points, Data[] training_data, DenseVector w, Random r )
+        {
+            Point[] training_points = Data.AsPoints( training_data );
+
+            return RunPerceptron( num_points, training_points, w, r );
+        }
+            
         public static int RunPerceptron( int num_points, Point[] training_points, DenseVector w, Random r )
         {
             int iterations = 0;
@@ -265,7 +258,7 @@ namespace LearningFromData
                 List<Point> misclassified = new List<Point>();
                 foreach( Point p in training_points )
                 {
-                    double PointY = (double)w[0] + (double)w[1] * p.x + (double)w[2] * p.y;
+                    double PointY = w[0] + w[1] * p.x + w[2] * p.y;
                     int sign = -1;
                     if( PointY > 0.0 )
                     {
@@ -295,13 +288,20 @@ namespace LearningFromData
             return iterations;
         }
 
+        public static int TestPoints( DenseVector w, Data[] test_data )
+        {
+            Point[] test_points = Data.AsPoints( test_data );
+
+            return TestPoints( w, test_points );
+        }
+
         public static int TestPoints( DenseVector w, Point[] test_points )
         {
             int fails = 0;
             foreach( Point p in test_points )
             {
                 int sign = -1;
-                if( (double)w[0] + (double)w[1] * p.x + (double)w[2] * p.y > 0.0 )
+                if( w[0] + w[1] * p.x + w[2] * p.y > 0.0 )
                 {
                     sign = 1;
                 }
@@ -323,7 +323,7 @@ namespace LearningFromData
         public DenseVector w;
         public double b;
 
-        public SVMHelper( Point[] x )
+        public SVMHelper( Data[] x )
         {
             prob = new svm_problem();
             svm = new svm();
@@ -350,7 +350,7 @@ namespace LearningFromData
             prob.y = new double[x.Count()];
             for( int j = 0; j < x.Count(); j++ )
             {
-                prob.y[j] = x[j].fx;
+                prob.y[j] = x[j].y;
             }
 
             prob.l = prob.y.Count();
@@ -359,13 +359,13 @@ namespace LearningFromData
             prob.x = new svm_node[x.Count()][];
             for( int j = 0; j < x.Count(); j++ )
             {
-                prob.x[j] = new svm_node[2];
-                prob.x[j][0] = new svm_node();
-                prob.x[j][0].index = 0;
-                prob.x[j][0].value_Renamed = x[j].x;
-                prob.x[j][1] = new svm_node();
-                prob.x[j][1].index = 1;
-                prob.x[j][1].value_Renamed = x[j].y;
+                prob.x[j] = new svm_node[x[j].x.Count()];
+                for( int k = 0; k < x[0].x.Count(); k++ )
+                {
+                    prob.x[j][k] = new svm_node();
+                    prob.x[j][k].index = k;
+                    prob.x[j][k].value_Renamed = x[j].x[k];
+                }
             }
         }
 
@@ -373,9 +373,9 @@ namespace LearningFromData
         {
             model = svm.svm_train( prob, param );
 
-            // w = _model.SV * _model.sv_coef
+            // w = model.SV * model.sv_coef
             // b = -model.rho
-            // if _model.Label(1) == -1, multiply w and b by -1
+            // if model.Label(1) == -1, multiply w and b by -1
 
             // calculate w
             w = new DenseVector( model.SV[0].Count() );
@@ -398,17 +398,72 @@ namespace LearningFromData
                 b *= -1.0;
             }
         }
+
+        // returns Ecv
+        public double cross_validation( int k )
+        {
+            int total_wrong = 0;
+            double[] target = new double[prob.l];
+            svm.svm_cross_validation( prob, param, k, target );
+            for( int i = 0; i < prob.l; i++ )
+            {
+                if( target[i] != prob.y[i] )
+                {
+                    total_wrong++;
+                }
+            }
+            return (double)total_wrong / (double)prob.l;
+        }
+
+        public double predict( Data[] x )
+        {
+            int fail = 0;
+
+            for( int i = 0; i < x.Count(); i++ )
+            {
+                svm_node[] p = new svm_node[2];
+                p[0] = new svm_node();
+                p[0].index = 0;
+                p[0].value_Renamed = x[i].x[0];
+                p[1] = new svm_node();
+                p[1].index = 1;
+                p[1].value_Renamed = x[i].x[1];
+
+                double ysvm = svm.svm_predict( model, p );
+                if( Math.Sign( ysvm ) != x[i].y )
+                {
+                    fail++;
+                }
+            }
+
+            return (double)fail / (double)x.Count();
+        }
     }
 
     public class Data
     {
-        double[] x;
-        double y;
+        public double[] x;
+        public int y;
 
         public Data( double[] _x )
         {
             x = _x;
             y = 0;
+        }
+
+        public static Data[] CreateDataSet( int n, Line l, Random r, int d )
+        {
+            Data[] point_set = new Data[n];
+            for( int i = 0; i < n; i++ )
+            {
+                point_set[i] = GetRandomData( d, r );
+
+                // this is a terrible bastardization for the 2D case
+                // when i finally get a lambda or something in there, i 
+                // can improve this
+                point_set[i].y = l.CalculateY( point_set[i].AsPoint() );
+            }
+            return point_set;
         }
 
         public DenseVector AsDenseVector()
@@ -420,12 +475,29 @@ namespace LearningFromData
 
         public static Data GetRandomData( int d, Random r )
         {
-            double[] x = new double[3];
+            double[] x = new double[d];
             for( int i = 0; i < d; i++ )
             {
                 x[i] = r.NextDouble() * 2.0 - 1.0;
             }
             return new Data( x );
+        }
+
+        public Point AsPoint()
+        {
+            Point p = new Point( x[0], x[1] );
+            p.fx = y;
+            return p;
+        }
+
+        public static Point[] AsPoints( Data[] training_data )
+        {
+            Point[] training_points = new Point[training_data.Count()];
+            for( int i = 0; i < training_data.Count(); i++ )
+            {
+                training_points[i] = training_data[i].AsPoint();
+            }
+            return training_points;
         }
     }
 }

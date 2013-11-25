@@ -372,9 +372,10 @@ namespace Week7
         public static void W7P8()
         {
             Random r = new Random();
-            int n = 10;
+            int n = 100;
             int n_test = 5000;
             int runs = 1000;
+            int d = 2;
 
             int pla_fails = 0;
             int svm_fails = 0;
@@ -388,17 +389,17 @@ namespace Week7
                 int svm_fails_this_run = 0;
 
                 Line l = Line.CreateRandomLine( r );                
-                Point[] training_points = null;
+                Data[] training_points = null;
                 bool good_to_go = false;
 
                 // make sure not all points are on the same side of the line
                 while( !good_to_go )
                 {
                     int sum_of_y = 0;
-                    training_points = Point.CreatePointSet( n, l, r );
-                    foreach( Point p in training_points )
+                    training_points = Data.CreateDataSet( n, l, r, d );
+                    foreach( Data p in training_points )
                     {
-                        sum_of_y += p.fx;
+                        sum_of_y += p.y;
                     }
                     if( sum_of_y < n && sum_of_y > ( n * -1 ) )
                     {
@@ -411,7 +412,7 @@ namespace Week7
                 int dc = LearningTools.RunPerceptron( n, training_points, w, r );
 
                 // test the PLA with test points
-                Point[] test_points = Point.CreatePointSet( n_test, l, r );
+                Data[] test_points = Data.CreateDataSet( n_test, l, r, d );
                 pla_fails_this_run += LearningTools.TestPoints( w, test_points );
 
                 SVMHelper svm = new SVMHelper( training_points );
@@ -424,12 +425,11 @@ namespace Week7
                     // test SVM with test points
                     for( int j = 0; j < test_points.Count(); j++ )
                     {
-                        DenseVector xn = new DenseVector( 2 );
-                        xn[0] = test_points[j].x;
-                        xn[1] = test_points[j].y;
+                        DenseVector xn = test_points[j].AsDenseVector();
+
                         int svm_y = Math.Sign( xn.DotProduct( svm.w ) + svm.b );
 
-                        if( svm_y != test_points[j].fx )
+                        if( svm_y != test_points[j].y )
                         {
                             svm_fails_this_run++;
                         }
