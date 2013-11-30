@@ -25,7 +25,114 @@ namespace FinalExam
             //double[] eout = new double[digits.Count()];
             //FEP8( r, digits, ein, eout, true );
 
-            FEP9();
+            //FEP9();
+
+            FEP10();
+        }
+
+        static void FEP10()
+        {
+            int d = 2;
+            Random r = new Random();
+            double[] lambdas = new double[2]{ 0.01, 1.0 };
+            double[] ein = new double[lambdas.Count()];
+            double[] eout = new double[lambdas.Count()];
+
+            for( int i = 0; i < lambdas.Count(); i++ )
+            {
+                List<double> y_train = new List<double>();
+                List<double[]> raw_data = new List<double[]>();
+                DataParseOneVsFive( @"c:\features.train", d, y_train, raw_data );
+                Data[] training_points = RawToData( raw_data, y_train );
+
+                List<double> y_test = new List<double>();
+                raw_data = new List<double[]>();
+                DataParseOneVsFive( @"c:\features.test", d, y_test, raw_data );
+                Data[] test_points = RawToData( raw_data, y_test );
+
+                // transform to Z : 1, x1, x2, x1 * x2, x1^2, x2^2
+                DenseMatrix Z = new DenseMatrix( training_points.Count(), 6 );
+                for( int j = 0; j < training_points.Count(); j++ )
+                {
+                    Z[j, 0] = 1;
+                    Z[j, 1] = training_points[j].x[1];
+                    Z[j, 2] = training_points[j].x[2];
+                    Z[j, 3] = training_points[j].x[1] * training_points[j].x[2];
+                    Z[j, 4] = Math.Pow( training_points[j].x[1], 2 );
+                    Z[j, 5] = Math.Pow( training_points[j].x[2], 2 );
+                }
+
+                DenseVector w = LearningTools.RunLinRegRegularized( training_points.Count(), Z, new DenseVector( y_train.ToArray() ),
+                    lambdas[i], r );
+
+                // calculate Ein
+                int num_wrong = 0;
+                for( int j = 0; j < training_points.Count(); j++ )
+                {
+                    if( Math.Sign( Z.Row( j ).DotProduct( w ) ) != training_points[j].y )
+                    {
+                        num_wrong++;
+                    }
+                }
+                ein[i] = (double)num_wrong / (double)training_points.Count();
+
+                // calculate Eout
+                num_wrong = 0;
+                for( int j = 0; j < test_points.Count(); j++ )
+                {
+                    DenseVector z = new DenseVector( 6 );
+                    z[0] = 1;
+                    z[1] = test_points[j].x[1];
+                    z[2] = test_points[j].x[2];
+                    z[3] = test_points[j].x[1] * test_points[j].x[2];
+                    z[4] = Math.Pow( test_points[j].x[1], 2 );
+                    z[5] = Math.Pow( test_points[j].x[2], 2 );
+                    if( Math.Sign( z.DotProduct( w ) ) != test_points[j].y )
+                    {
+                        num_wrong++;
+                    }
+                }
+                eout[i] = (double)num_wrong / (double)test_points.Count();
+            }
+
+            Console.WriteLine();
+            for( int i = 0; i < lambdas.Count(); i++ )
+            {
+                Console.WriteLine( "For lambda=" + lambdas[i].ToString( "f2" ) + " ein = " + ein[i].ToString( "f04" )
+                    + " eout = " + eout[i].ToString( "f04" ) );
+            }
+            Console.ReadLine();
+        }
+
+        static void DataParseOneVsFive( string filename, int d, List<double> y, List<double[]> raw_data )
+        {
+            string line;
+            using( StreamReader file = new StreamReader( filename ) )
+            {
+                // if this was real programming, we'd put some error handling around this
+                while( ( line = file.ReadLine() ) != null )
+                {
+                    double[] point = new double[d+1];
+                    string[] parts = line.Split( new char[0], StringSplitOptions.RemoveEmptyEntries );
+                    double yn = double.Parse( parts[0] );
+                    point[0] = 1;
+                    if( yn == 1 )
+                    {
+                        y.Add( 1 );
+                        point[1] = double.Parse( parts[1] );
+                        point[2] = double.Parse( parts[2] );
+                        raw_data.Add( point );
+                    }
+                    else if( yn == 5 )
+                    {
+                        y.Add( -1 );
+                        point[1] = double.Parse( parts[1] );
+                        point[2] = double.Parse( parts[2] );
+                        raw_data.Add( point );
+                    }
+                }
+                file.Close();
+            }
         }
 
         static void FEP9()
