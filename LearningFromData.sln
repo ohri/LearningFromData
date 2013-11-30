@@ -13,6 +13,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "libsvm", "libsvm\libsvm.csp
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Week8", "Week8\Week8.csproj", "{28CD5C29-A028-424D-8718-E910B48D0A17}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FinalExam", "FinalExam\FinalExam.csproj", "{9871695E-C756-4C6A-99F0-D3A4734664AA}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -39,6 +41,10 @@ Global
 		{28CD5C29-A028-424D-8718-E910B48D0A17}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{28CD5C29-A028-424D-8718-E910B48D0A17}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{28CD5C29-A028-424D-8718-E910B48D0A17}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9871695E-C756-4C6A-99F0-D3A4734664AA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9871695E-C756-4C6A-99F0-D3A4734664AA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9871695E-C756-4C6A-99F0-D3A4734664AA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9871695E-C756-4C6A-99F0-D3A4734664AA}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
