@@ -53,7 +53,7 @@ namespace FinalExam
             int d = 2;
             int n = 100;
             int runs = 1000;
-            int k = 12;
+            int k = 9;
             double gamma = 1.5;
             int num_test_points = 1000;
 
@@ -65,7 +65,10 @@ namespace FinalExam
 
             double avg_svm_eout = 0;
             double avg_rbf_eout = 0;
+            double avg_rbf_ein = 0;
             double avg_iterations = 0;
+
+            int perfect_ein = 0;
 
             for( int i = 0; i < runs; i++ )
             {
@@ -192,6 +195,7 @@ namespace FinalExam
                     }
                     DenseVector w = LearningTools.RunLinearRegression( n, phi, new DenseVector( y ), r );
 
+                    // Eout
                     int fail = 0;
                     for( int g = 0; g < test_points.Count(); g++ )
                     {
@@ -207,6 +211,26 @@ namespace FinalExam
                     }
                     double rbf_eout = (double)fail / (double)test_points.Count();
 
+                    // Ein
+                    fail = 0;
+                    for( int g = 0; g < training_points.Count(); g++ )
+                    {
+                        double temp = 0;
+                        for( int h = 0; h < k; h++ )
+                        {
+                            temp += w[h] * Math.Exp( -1.0 * gamma * Math.Pow( training_points[g].AsDenseVector().Subtract( mu[h].AsDenseVector() ).Norm( 2 ), 2 ) );
+                        }
+                        if( Math.Sign( temp ) != training_points[g].y )
+                        {
+                            fail++;
+                        }
+                    }
+                    double rbf_ein = (double)fail / (double)training_points.Count();
+                    if( fail == 0 )
+                    {
+                        perfect_ein++;
+                    }
+
                     // declare a winner
                     if( svm_eout < rbf_eout )
                     {
@@ -219,6 +243,7 @@ namespace FinalExam
 
                     avg_rbf_eout += rbf_eout;
                     avg_svm_eout += svm_eout;
+                    avg_rbf_ein += rbf_ein;
                 }
                 else
                 {
@@ -228,14 +253,18 @@ namespace FinalExam
 
             avg_svm_eout = avg_svm_eout / (double)( svm_wins + rbf_wins );
             avg_rbf_eout = avg_rbf_eout / (double)( svm_wins + rbf_wins );
+            avg_rbf_ein = avg_rbf_ein / (double)( svm_wins + rbf_wins );
             avg_iterations = avg_iterations / (double)( svm_wins + rbf_wins );
 
             Console.WriteLine();
+            Console.WriteLine( "For K = " + k.ToString() + ", gamma = " + gamma.ToString( "f2" ) );
             Console.WriteLine( "Ran " + runs.ToString() + " runs" );
             Console.WriteLine( "  svm.rbf won " + ( (double)svm_wins / (double)( svm_wins + rbf_wins ) * 100.0 ).ToString( "f2" ) + "%" );
             Console.WriteLine( "  my rbf  won " + ( (double)rbf_wins / (double)( svm_wins + rbf_wins ) * 100.0 ).ToString( "f2" ) + "%" );
             Console.WriteLine( "Avg Eout for svm.rbf was " + avg_svm_eout.ToString( "f4" ) );
             Console.WriteLine( "Avg Eout for my  rbf was " + avg_rbf_eout.ToString( "f4" ) );
+            Console.WriteLine( "Avg Ein for my  rbf was " + avg_rbf_ein.ToString( "f4" ) );
+            Console.WriteLine( "Perfect Ein for my rbf happened " + perfect_ein.ToString() );
             Console.WriteLine( "Avg lloyd's iterations was " + avg_iterations.ToString( "f2" ) );
             Console.ReadLine();
         }
