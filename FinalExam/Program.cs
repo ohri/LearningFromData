@@ -27,7 +27,295 @@ namespace FinalExam
 
             //FEP9();
 
-            FEP10();
+            //FEP10();
+
+            //FEP12();
+
+            //FEP13();
+
+
+            FEP14();
+        }
+
+        static void GetFE13Points( int n, int d, out Data[] x, out double[] y, Random r )
+        {
+            x = Data.CreateDataSet( n, null, r, d );
+            y = new double[x.Count()];
+            for( int j = 0; j < n; j++ )
+            {
+                x[j].y = Math.Sign( x[j].x[1] - x[j].x[0] + 0.25 * Math.Sin( Math.PI * x[j].x[0] ) );
+                y[j] = x[j].y;
+            }
+        }
+
+        static void FEP14()
+        {
+            int d = 2;
+            int n = 100;
+            int runs = 1000;
+            int k = 12;
+            double gamma = 1.5;
+            int num_test_points = 1000;
+
+            Random r = new Random();
+
+            int svm_wins = 0;
+            int rbf_wins = 0;
+            int num_bad_runs = 0;
+
+            double avg_svm_eout = 0;
+            double avg_rbf_eout = 0;
+            double avg_iterations = 0;
+
+            for( int i = 0; i < runs; i++ )
+            {
+                // generate 100 points
+                Data[] training_points = new Data[n];
+                double[] y = new double[n];
+                GetFE13Points( n, d, out training_points, out y, r );
+
+                // train it
+                SVMHelper svm = new SVMHelper( training_points );
+                svm.param.C = 10000;
+                svm.param.gamma = gamma;
+                svm.param.kernel_type = libsvm.svm_parameter.RBF;
+                svm.prob.y = y;
+                svm.prob.l = y.Count();
+                svm.train();
+
+                // get the rbf with lloyds
+
+                bool converged = false;
+                bool bad_run = false;
+                int convergence_count = 0;
+
+                // pick k random centers for clusters
+                Data[] mu = Data.CreateDataSet( k, null, r, d );
+
+                while( !converged && !bad_run )
+                {
+                    convergence_count++;
+
+                    // assign each data point to a cluster
+                    List<int>[] clusters = new List<int>[k];
+                    for( int j = 0; j < k; j++ )
+                    {
+                        clusters[j] = new List<int>();
+                    }
+                    for( int j = 0; j < training_points.Count(); j++ )
+                    {
+                        double[] distance = new double[k];
+                        for( int m = 0; m < k; m++ )
+                        {
+                            distance[m] = training_points[j].PointDistance( mu[m] );
+                        }
+                        double min = distance[0];
+                        int index = 0;
+                        for( int m = 0; m < k; m++ )
+                        {
+                            if( distance[m] < min )
+                            {
+                                index = m;
+                                min = distance[m];
+                            }
+                        }
+                        clusters[index].Add( j );
+                    }
+
+                    // make sure there are no empty clusters
+                    for( int j = 0; j < k; j++ )
+                    {
+                        if( clusters[j].Count() == 0 )
+                        {
+                            bad_run = true;
+                        }
+                    }
+
+                    // create new mu's
+                    Data[] new_mu = new Data[k];
+                    for( int j = 0; j < k; j++ )
+                    {
+                        // average the points in the cluster - this becomes the new center
+                        new_mu[j] = new Data( new double[d] );
+                        for( int m = 0; m < clusters[j].Count(); m++ )
+                        {
+                            for( int mi = 0; mi < d; mi++ )
+                            {
+                                new_mu[j].x[mi] += training_points[clusters[j][m]].x[mi];
+                            }
+                        }
+                        for( int m = 0; m < d; m++ )
+                        {
+                            new_mu[j].x[m] = new_mu[j].x[m] / (double)clusters[j].Count();
+                        }
+                    }
+
+                    // have we converged?
+                    bool difference = false;
+                    for( int j = 0; j < k; j++ )
+                    {
+                        if( !mu[j].Equals( new_mu[j] ) )
+                        {
+                            difference = true;
+                        }
+                    }
+                    if( !difference )
+                    {
+                        converged = true;
+                    }
+                    else
+                    {
+                        mu = new_mu;
+                    }
+                }
+
+                if( !bad_run )
+                {
+                    avg_iterations += (double)convergence_count;
+
+                    // generate test points
+                    Data[] test_points = null;
+                    double[] y_test = null;
+                    GetFE13Points( num_test_points, d, out test_points, out y_test, r );
+
+                    // get eout for svm.rbf
+                    double svm_eout = svm.predict( test_points );
+
+                    // get eout for my rbf
+                    DenseMatrix phi = new DenseMatrix( n, k );
+                    for( int g = 0; g < k; g++ )
+                    {
+                        for( int h = 0; h < n; h++ )
+                        {
+                            phi[h, g] = Math.Exp( -1.0 * gamma * Math.Pow( training_points[h].AsDenseVector().Subtract( mu[g].AsDenseVector() ).Norm( 2 ), 2 ) );
+                        }
+                    }
+                    DenseVector w = LearningTools.RunLinearRegression( n, phi, new DenseVector( y ), r );
+
+                    int fail = 0;
+                    for( int g = 0; g < test_points.Count(); g++ )
+                    {
+                        double temp = 0;
+                        for( int h = 0; h < k; h++ )
+                        {
+                            temp += w[h] * Math.Exp( -1.0 * gamma * Math.Pow( test_points[g].AsDenseVector().Subtract( mu[h].AsDenseVector() ).Norm( 2 ), 2 ) );
+                        }
+                        if( Math.Sign( temp ) != test_points[g].y )
+                        {
+                            fail++;
+                        }
+                    }
+                    double rbf_eout = (double)fail / (double)test_points.Count();
+
+                    // declare a winner
+                    if( svm_eout < rbf_eout )
+                    {
+                        svm_wins++;
+                    }
+                    else
+                    {
+                        rbf_wins++;
+                    }
+
+                    avg_rbf_eout += rbf_eout;
+                    avg_svm_eout += svm_eout;
+                }
+                else
+                {
+                    num_bad_runs++;
+                }
+            }
+
+            avg_svm_eout = avg_svm_eout / (double)( svm_wins + rbf_wins );
+            avg_rbf_eout = avg_rbf_eout / (double)( svm_wins + rbf_wins );
+            avg_iterations = avg_iterations / (double)( svm_wins + rbf_wins );
+
+            Console.WriteLine();
+            Console.WriteLine( "Ran " + runs.ToString() + " runs" );
+            Console.WriteLine( "  svm.rbf won " + ( (double)svm_wins / (double)( svm_wins + rbf_wins ) * 100.0 ).ToString( "f2" ) + "%" );
+            Console.WriteLine( "  my rbf  won " + ( (double)rbf_wins / (double)( svm_wins + rbf_wins ) * 100.0 ).ToString( "f2" ) + "%" );
+            Console.WriteLine( "Avg Eout for svm.rbf was " + avg_svm_eout.ToString( "f4" ) );
+            Console.WriteLine( "Avg Eout for my  rbf was " + avg_rbf_eout.ToString( "f4" ) );
+            Console.WriteLine( "Avg lloyd's iterations was " + avg_iterations.ToString( "f2" ) );
+            Console.ReadLine();
+        }
+
+        static void FEP13()
+        {
+            int d = 2;
+            int n = 100;
+            int runs = 1000;
+
+            Random r = new Random();
+
+            int not_sep = 0;
+
+            for( int i = 0; i < runs; i++ )
+            {
+                // generate 100 points
+                Data[] x = Data.CreateDataSet( n, null, r, d );
+                double[] y = new double[x.Count()];
+                for( int j = 0; j < n; j++ )
+                {
+                    x[j].y = Math.Sign( x[j].x[1] - x[j].x[0] + 0.25 * Math.Sin( Math.PI * x[j].x[0] ) );
+                    y[j] = x[j].y;
+                }
+
+                // train it
+                SVMHelper svm = new SVMHelper( x );
+                svm.param.C = 10000;
+                svm.param.gamma = 1.5;
+                svm.param.kernel_type = libsvm.svm_parameter.RBF;
+                svm.prob.y = y;
+                svm.prob.l = y.Count();
+                svm.train();
+
+                // see if it was lin sep (ein = 0 => lin sep) 
+                if( svm.predict( x ) > 0.0 )
+                {
+                    not_sep++;
+                }
+            }
+
+            Console.WriteLine();
+            Console.WriteLine( "Ran " + runs.ToString() + " runs, failed to seperate " + not_sep.ToString() + " times" );
+            Console.ReadLine();
+        }
+
+        static void FEP12()
+        {
+            Data[] x = new Data[7];
+            x[0] = new Data( new double[] { 1, 0 } );
+            x[0].y = -1;
+            x[1] = new Data( new double[] { 0, 1 } );
+            x[1].y = -1;
+            x[2] = new Data( new double[] { 0, -1 } );
+            x[2].y = -1;
+            x[3] = new Data( new double[] { -1, 0 } );
+            x[3].y = 1;
+            x[4] = new Data( new double[] { 0, 2 } );
+            x[4].y = 1;
+            x[5] = new Data( new double[] { 0, -2 } );
+            x[5].y = 1;
+            x[6] = new Data( new double[] { -2, 0 } );
+            x[6].y = 1;
+
+            double[] y = new double[7] { -1, -1, -1, 1, 1, 1, 1 };
+
+            SVMHelper svm = new SVMHelper( x );
+            svm.prob.y = y;
+            svm.prob.l = y.Count();
+
+            svm.param.gamma = 1;
+            svm.param.kernel_type = libsvm.svm_parameter.POLY;
+            svm.param.coef0 = 1;
+            svm.param.degree = 2;
+            svm.param.C = 100000;
+            svm.train();
+
+            Console.WriteLine();
+            Console.WriteLine( "Number of support vectors was " + svm.model.SV.Count() );
+            Console.ReadLine();
         }
 
         static void FEP10()

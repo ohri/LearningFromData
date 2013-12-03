@@ -222,9 +222,6 @@ namespace LearningFromData
 
         public static DenseVector RunLinearRegression( int num_points, DenseMatrix X, DenseVector y, Random r )
         {
-            // create the target function
-            Line l = Line.CreateRandomLine( r );
-
             // train with linear regression
             // linear regression gives us a new equation for a line in 'one fell swoop'
             // w = Xdagger * y
@@ -451,6 +448,41 @@ namespace LearningFromData
             y = 0;
         }
 
+        // NOTE: does not compare y!
+        public bool Equals( Data b )
+        {
+            if( x.Count() != b.x.Count() )
+            {
+                return false;
+            }
+
+            for( int i = 0; i < x.Count(); i++ )
+            {
+                if( x[i] != b.x[i] )
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        public double PointDistance( Data b )
+        {
+            if( x.Count() != b.x.Count() )
+            {
+                throw new Exception();
+            }
+
+            double sum = 0;
+            for( int i = 0; i < x.Count(); i++ )
+            {
+                sum += Math.Pow( x[i] - b.x[i], 2 );
+            }
+
+            return Math.Sqrt( sum );
+        }
+        
         public static Data[] CreateDataSet( int n, Line l, Random r, int d )
         {
             Data[] point_set = new Data[n];
@@ -461,7 +493,10 @@ namespace LearningFromData
                 // this is a terrible bastardization for the 2D case
                 // when i finally get a lambda or something in there, i 
                 // can improve this
-                point_set[i].y = l.CalculateY( point_set[i].AsPoint() );
+                if( l != null )
+                {
+                    point_set[i].y = l.CalculateY( point_set[i].AsPoint() );
+                }
             }
             return point_set;
         }
