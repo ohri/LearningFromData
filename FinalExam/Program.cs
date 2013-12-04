@@ -26,15 +26,13 @@ namespace FinalExam
             //FEP8( r, digits, ein, eout, true );
 
             //FEP9();
-
             //FEP10();
-
-            //FEP12();
-
+            FEP12();
             //FEP13();
-
-
-            FEP14();
+            //FEP14();
+            //FEP16();
+            //FEP17();
+            //FEP18();
         }
 
         static void GetFE13Points( int n, int d, out Data[] x, out double[] y, Random r )
@@ -46,6 +44,345 @@ namespace FinalExam
                 x[j].y = Math.Sign( x[j].x[1] - x[j].x[0] + 0.25 * Math.Sin( Math.PI * x[j].x[0] ) );
                 y[j] = x[j].y;
             }
+        }
+
+        static void FEP18()
+        {
+            int d = 2;
+            int n = 100;
+            int runs = 1000;
+            int k = 9;
+            Random r = new Random();
+            double avg_ein = 0;
+            int perfect = 0;
+            double gamma = 1.5;
+
+            int i = 0;
+            while( i < runs )
+            {
+                Console.Write( "." );
+
+                // generate training points
+                Data[] training_points = null;
+                double[] y = null;
+                GetFE13Points( n, d, out training_points, out y, r );
+
+                // get the rbf with lloyds
+                Data[] mu = null;
+                int lloyds_result = LearningTools.RunLloydsAlgorithm( training_points, out mu, k, d, r );
+                if( lloyds_result != -1 )
+                {
+                    DenseVector w = LearningTools.RunRegularRBF( n, k, training_points, mu, gamma, y, r );
+                    int fail = TestSet( k, training_points, mu, gamma, w );
+                    if( fail == 0 )
+                    {
+                        perfect++;
+                    }
+                    avg_ein += (double)fail / (double)training_points.Count();
+                    i++;
+                }
+            }
+
+            avg_ein /= (double)( i - 1.0 );
+
+            Console.WriteLine();
+            Console.WriteLine( i.ToString() + " runs" );
+            Console.WriteLine( "Perfect runs: " + perfect.ToString() + " -- " + ( perfect * 100.0 / (double)( i - 1.0 ) ).ToString( "f1" ) + "%" );
+            Console.WriteLine( "Average ein = " + avg_ein.ToString( "f4" ) );
+            Console.ReadLine();
+        }
+
+        static void FEP17()
+        {
+            int d = 2;
+            int n = 100;
+            int runs = 1000;
+            int k = 9;
+            int num_test_points = 1000;
+
+            Random r = new Random();
+
+            int num_bad_runs = 0;
+
+            double eout_15 = 0;
+            double eout_20 = 0;
+            double ein_15 = 0;
+            double ein_20 = 0;
+
+            double avg_eout_15 = 0;
+            double avg_ein_15 = 0;
+            double avg_eout_20 = 0;
+            double avg_ein_20 = 0;
+
+            int eindown_eoutup = 0;
+            int einup_eoutdown = 0;
+            int ein_eout_up = 0;
+            int ein_eout_down = 0;
+            int equal = 0;
+            int other_result = 0;
+
+            int i = 0;
+            while( i < runs )
+            {
+                Console.Write( "." );
+
+                // generate training points
+                Data[] training_points = new Data[n];
+                double[] y = new double[n];
+                GetFE13Points( n, d, out training_points, out y, r );
+
+                // generate test points
+                Data[] test_points = null;
+                double[] y_test = null;
+                GetFE13Points( num_test_points, d, out test_points, out y_test, r );
+
+                // get the rbf with lloyds
+                Data[] mu = null;
+                double gamma = 1.5;
+                int lloyds_result = LearningTools.RunLloydsAlgorithm( training_points, out mu, k, d, r );
+                if( lloyds_result != -1 )
+                {
+                    DenseVector w = LearningTools.RunRegularRBF( n, k, training_points, mu, gamma, y, r );
+
+                    // Eout
+                    int fail = TestSet( k, test_points, mu, gamma, w );
+                    eout_15 = (double)fail / (double)test_points.Count();
+
+                    // Ein
+                    fail = TestSet( k, training_points, mu, gamma, w );
+                    ein_15 = (double)fail / (double)training_points.Count();
+
+                    // do it again with gamma = 2
+                    gamma = 2;
+                    lloyds_result = LearningTools.RunLloydsAlgorithm( training_points, out mu, k, d, r );
+                    if( lloyds_result != -1 )
+                    {
+                        w = LearningTools.RunRegularRBF( n, k, training_points, mu, gamma, y, r );
+
+                        // Eout
+                        fail = TestSet( k, test_points, mu, gamma, w );
+                        eout_20 = (double)fail / (double)test_points.Count();
+
+                        // Ein
+                        fail = TestSet( k, training_points, mu, gamma, w );
+                        ein_20 = (double)fail / (double)training_points.Count();
+
+                        // declare a winner
+                        if( ein_15 > ein_20 && eout_15 < eout_20 )
+                        {
+                            eindown_eoutup++;
+                        }
+                        else if( ein_15 < ein_20 && eout_15 > eout_20 )
+                        {
+                            einup_eoutdown++;
+                        }
+                        else if( ein_15 > ein_20 && eout_15 > eout_20 )
+                        {
+                            ein_eout_down++;
+                        }
+                        else if( ein_15 < ein_20 && eout_15 < eout_20 )
+                        {
+                            ein_eout_up++;
+                        }
+                        else if( ein_15 == ein_20 && eout_15 == eout_20 )
+                        {
+                            equal++;
+                        }
+                        else
+                        {
+                            other_result++;
+                        }
+
+                        avg_ein_15 += ein_15;
+                        avg_eout_15 += eout_15;
+                        avg_ein_20 += ein_20;
+                        avg_eout_20 += eout_20;
+
+                        i++;
+                    }
+                    else
+                    {
+                        num_bad_runs++;
+                    }
+                }
+                else
+                {
+                    num_bad_runs++;
+                }
+            }
+
+            avg_ein_15 /= (double)( i - 1.0 );
+            avg_eout_15 /= (double)( i - 1.0 );
+            avg_ein_20 /= (double)( i - 1.0 );
+            avg_eout_20 /= (double)( i - 1.0 );
+
+            Console.WriteLine();
+            Console.WriteLine( i.ToString() + " runs, " + num_bad_runs.ToString() + " bad runs" );
+            Console.WriteLine( "Ein up, Eout down : " + einup_eoutdown.ToString() );
+            Console.WriteLine( "Ein down, Eout up : " + eindown_eoutup.ToString() );
+            Console.WriteLine( "Ein, Eout down : " + ein_eout_down.ToString() );
+            Console.WriteLine( "Ein, Eout up : " + ein_eout_up.ToString() );
+            Console.WriteLine( "Ein, Eout don't change : " + equal.ToString() );
+            Console.WriteLine( "Other result : " + other_result.ToString() );
+            Console.WriteLine( "Gamma=1.5 Ein=" + avg_ein_15.ToString( "f4" ) + "  Eout=" + avg_eout_15.ToString( "f4" ) );
+            Console.WriteLine( "Gamma=2.0 Ein=" + avg_ein_20.ToString( "f4" ) + "  Eout=" + avg_eout_20.ToString( "f4" ) );
+            Console.ReadLine();
+        }
+
+        private static int TestSet( int k, Data[] points, Data[] mu, double gamma, DenseVector w )
+        {
+            int fail = 0;
+            for( int g = 0; g < points.Count(); g++ )
+            {
+                double temp = 0;
+                for( int h = 0; h < k; h++ )
+                {
+                    temp += w[h + 1] * Math.Exp( -1.0 * gamma * Math.Pow( points[g].AsDenseVector().Subtract( mu[h].AsDenseVector() ).Norm( 2 ), 2 ) );
+                }
+                if( Math.Sign( temp + w[0] ) != points[g].y )
+                {
+                    fail++;
+                }
+            }
+            return fail;
+        }
+        
+        
+        static void FEP16()
+        {
+            int d = 2;
+            int n = 100;
+            int runs = 1000;
+            double gamma = 1.5;
+            int num_test_points = 1000;
+
+            Random r = new Random();
+
+            int num_bad_runs = 0;
+
+            double eout_9 = 0;
+            double eout_12 = 0;
+            double ein_9 = 0;
+            double ein_12 = 0;
+
+            double avg_eout_9 = 0;
+            double avg_ein_9 = 0;
+            double avg_eout_12 = 0;
+            double avg_ein_12 = 0;
+
+            int eindown_eoutup = 0;
+            int einup_eoutdown = 0;
+            int ein_eout_up = 0;
+            int ein_eout_down = 0;
+            int equal = 0;
+            int other_result = 0;
+
+            int i = 0;
+            while( i < runs )
+            {
+                Console.Write( "." );
+
+                // generate training points
+                Data[] training_points = null;
+                double[] y = new double[n];
+                GetFE13Points( n, d, out training_points, out y, r );
+
+                // generate test points
+                Data[] test_points = null;
+                double[] y_test = null;
+                GetFE13Points( num_test_points, d, out test_points, out y_test, r );
+
+                // get the rbf with lloyds
+                int k = 9;
+                Data[] mu = null;
+                int lloyds_result = LearningTools.RunLloydsAlgorithm( training_points, out mu, k, d, r );
+                if( lloyds_result != -1 )
+                {
+                    DenseVector w = LearningTools.RunRegularRBF( n, k, training_points, mu, gamma, y, r );
+
+                    // Eout
+                    int fail = TestSet( k, test_points, mu, gamma, w );
+                    eout_9 = (double)fail / (double)test_points.Count();
+
+                    // Ein
+                    fail = TestSet( k, training_points, mu, gamma, w );
+                    ein_9 = (double)fail / (double)training_points.Count();
+
+                    // do it again with k = 12
+                    k = 12;
+                    lloyds_result = LearningTools.RunLloydsAlgorithm( training_points, out mu, k, d, r );
+                    if( lloyds_result != -1 )
+                    {
+                        w = LearningTools.RunRegularRBF( n, k, training_points, mu, gamma, y, r );
+
+                        // Eout
+                        fail = TestSet( k, test_points, mu, gamma, w );
+                        eout_12 = (double)fail / (double)test_points.Count();
+
+                        // Ein
+                        fail = TestSet( k, training_points, mu, gamma, w );
+                        ein_12 = (double)fail / (double)training_points.Count();
+
+                        // declare a winner
+                        if( ein_9 > ein_12 && eout_9 < eout_12 )
+                        {
+                            eindown_eoutup++;
+                        }
+                        else if( ein_9 < ein_12 && eout_9 > eout_12 )
+                        {
+                            einup_eoutdown++;
+                        }
+                        else if( ein_9 > ein_12 && eout_9 > eout_12 )
+                        {
+                            ein_eout_down++;
+                        }
+                        else if( ein_9 < ein_12 && eout_9 < eout_12 )
+                        {
+                            ein_eout_up++;
+                        }
+                        else if( ein_9 == ein_12 && eout_9 == eout_12 )
+                        {
+                            equal++;
+                        }
+                        else
+                        {
+                            other_result++;
+                        }
+
+                        avg_ein_9 += ein_9;
+                        avg_eout_9 += eout_9;
+                        avg_ein_12 += ein_12;
+                        avg_eout_12 += eout_12;
+
+                        i++;
+                    }
+                    else
+                    {
+                        num_bad_runs++;
+                    }
+                }
+                else
+                {
+                    num_bad_runs++;
+                }
+            }
+
+            avg_ein_9 /= (double)( i - 1.0 );
+            avg_eout_9 /= (double)( i - 1.0 );
+            avg_ein_12 /= (double)( i - 1.0 );
+            avg_eout_12 /= (double)( i - 1.0 );
+
+            Console.WriteLine();
+            Console.WriteLine( i.ToString() + " runs, " + num_bad_runs.ToString() + " bad runs" );
+            Console.WriteLine( "Ein up, Eout down : " + einup_eoutdown.ToString() );
+            Console.WriteLine( "Ein down, Eout up : " + eindown_eoutup.ToString() );
+            Console.WriteLine( "Ein, Eout down : " + ein_eout_down.ToString() );
+            Console.WriteLine( "Ein, Eout up : " + ein_eout_up.ToString() );
+            Console.WriteLine( "Equal : " + equal.ToString() );
+            Console.WriteLine( "Other result : " + other_result.ToString() );
+            Console.WriteLine( "K=9 Ein=" + avg_ein_9.ToString( "f4" ) + "  Eout=" + avg_eout_9.ToString( "f4" ) );
+            Console.WriteLine( "K=12 Ein=" + avg_ein_12.ToString( "f4" ) + "  Eout=" + avg_eout_12.ToString( "f4" ) );
+            Console.ReadLine();
         }
 
         static void FEP14()
@@ -62,18 +399,18 @@ namespace FinalExam
             int svm_wins = 0;
             int rbf_wins = 0;
             int num_bad_runs = 0;
+            int perfect_ein = 0;
 
             double avg_svm_eout = 0;
             double avg_rbf_eout = 0;
             double avg_rbf_ein = 0;
             double avg_iterations = 0;
 
-            int perfect_ein = 0;
-
-            for( int i = 0; i < runs; i++ )
+            int i = 0;
+            while( i < runs )
             {
-                // generate 100 points
-                Data[] training_points = new Data[n];
+                // generate n points
+                Data[] training_points = null;
                 double[] y = new double[n];
                 GetFE13Points( n, d, out training_points, out y, r );
 
@@ -87,94 +424,11 @@ namespace FinalExam
                 svm.train();
 
                 // get the rbf with lloyds
-
-                bool converged = false;
-                bool bad_run = false;
-                int convergence_count = 0;
-
-                // pick k random centers for clusters
-                Data[] mu = Data.CreateDataSet( k, null, r, d );
-
-                while( !converged && !bad_run )
+                Data[] mu = null;
+                int lloyds_result = LearningTools.RunLloydsAlgorithm( training_points, out mu, k, d, r );
+                if( lloyds_result != -1 )
                 {
-                    convergence_count++;
-
-                    // assign each data point to a cluster
-                    List<int>[] clusters = new List<int>[k];
-                    for( int j = 0; j < k; j++ )
-                    {
-                        clusters[j] = new List<int>();
-                    }
-                    for( int j = 0; j < training_points.Count(); j++ )
-                    {
-                        double[] distance = new double[k];
-                        for( int m = 0; m < k; m++ )
-                        {
-                            distance[m] = training_points[j].PointDistance( mu[m] );
-                        }
-                        double min = distance[0];
-                        int index = 0;
-                        for( int m = 0; m < k; m++ )
-                        {
-                            if( distance[m] < min )
-                            {
-                                index = m;
-                                min = distance[m];
-                            }
-                        }
-                        clusters[index].Add( j );
-                    }
-
-                    // make sure there are no empty clusters
-                    for( int j = 0; j < k; j++ )
-                    {
-                        if( clusters[j].Count() == 0 )
-                        {
-                            bad_run = true;
-                        }
-                    }
-
-                    // create new mu's
-                    Data[] new_mu = new Data[k];
-                    for( int j = 0; j < k; j++ )
-                    {
-                        // average the points in the cluster - this becomes the new center
-                        new_mu[j] = new Data( new double[d] );
-                        for( int m = 0; m < clusters[j].Count(); m++ )
-                        {
-                            for( int mi = 0; mi < d; mi++ )
-                            {
-                                new_mu[j].x[mi] += training_points[clusters[j][m]].x[mi];
-                            }
-                        }
-                        for( int m = 0; m < d; m++ )
-                        {
-                            new_mu[j].x[m] = new_mu[j].x[m] / (double)clusters[j].Count();
-                        }
-                    }
-
-                    // have we converged?
-                    bool difference = false;
-                    for( int j = 0; j < k; j++ )
-                    {
-                        if( !mu[j].Equals( new_mu[j] ) )
-                        {
-                            difference = true;
-                        }
-                    }
-                    if( !difference )
-                    {
-                        converged = true;
-                    }
-                    else
-                    {
-                        mu = new_mu;
-                    }
-                }
-
-                if( !bad_run )
-                {
-                    avg_iterations += (double)convergence_count;
+                    avg_iterations += (double)lloyds_result;
 
                     // generate test points
                     Data[] test_points = null;
@@ -184,47 +438,14 @@ namespace FinalExam
                     // get eout for svm.rbf
                     double svm_eout = svm.predict( test_points );
 
-                    // get eout for my rbf
-                    DenseMatrix phi = new DenseMatrix( n, k );
-                    for( int g = 0; g < k; g++ )
-                    {
-                        for( int h = 0; h < n; h++ )
-                        {
-                            phi[h, g] = Math.Exp( -1.0 * gamma * Math.Pow( training_points[h].AsDenseVector().Subtract( mu[g].AsDenseVector() ).Norm( 2 ), 2 ) );
-                        }
-                    }
-                    DenseVector w = LearningTools.RunLinearRegression( n, phi, new DenseVector( y ), r );
+                    DenseVector w = LearningTools.RunRegularRBF( n, k, training_points, mu, gamma, y, r );
 
                     // Eout
-                    int fail = 0;
-                    for( int g = 0; g < test_points.Count(); g++ )
-                    {
-                        double temp = 0;
-                        for( int h = 0; h < k; h++ )
-                        {
-                            temp += w[h] * Math.Exp( -1.0 * gamma * Math.Pow( test_points[g].AsDenseVector().Subtract( mu[h].AsDenseVector() ).Norm( 2 ), 2 ) );
-                        }
-                        if( Math.Sign( temp ) != test_points[g].y )
-                        {
-                            fail++;
-                        }
-                    }
+                    int fail = TestSet( k, test_points, mu, gamma, w );
                     double rbf_eout = (double)fail / (double)test_points.Count();
 
                     // Ein
-                    fail = 0;
-                    for( int g = 0; g < training_points.Count(); g++ )
-                    {
-                        double temp = 0;
-                        for( int h = 0; h < k; h++ )
-                        {
-                            temp += w[h] * Math.Exp( -1.0 * gamma * Math.Pow( training_points[g].AsDenseVector().Subtract( mu[h].AsDenseVector() ).Norm( 2 ), 2 ) );
-                        }
-                        if( Math.Sign( temp ) != training_points[g].y )
-                        {
-                            fail++;
-                        }
-                    }
+                    fail = TestSet( k, training_points, mu, gamma, w );
                     double rbf_ein = (double)fail / (double)training_points.Count();
                     if( fail == 0 )
                     {
@@ -244,6 +465,7 @@ namespace FinalExam
                     avg_rbf_eout += rbf_eout;
                     avg_svm_eout += svm_eout;
                     avg_rbf_ein += rbf_ein;
+                    i++;
                 }
                 else
                 {
@@ -259,12 +481,12 @@ namespace FinalExam
             Console.WriteLine();
             Console.WriteLine( "For K = " + k.ToString() + ", gamma = " + gamma.ToString( "f2" ) );
             Console.WriteLine( "Ran " + runs.ToString() + " runs" );
-            Console.WriteLine( "  svm.rbf won " + ( (double)svm_wins / (double)( svm_wins + rbf_wins ) * 100.0 ).ToString( "f2" ) + "%" );
-            Console.WriteLine( "  my rbf  won " + ( (double)rbf_wins / (double)( svm_wins + rbf_wins ) * 100.0 ).ToString( "f2" ) + "%" );
-            Console.WriteLine( "Avg Eout for svm.rbf was " + avg_svm_eout.ToString( "f4" ) );
-            Console.WriteLine( "Avg Eout for my  rbf was " + avg_rbf_eout.ToString( "f4" ) );
-            Console.WriteLine( "Avg Ein for my  rbf was " + avg_rbf_ein.ToString( "f4" ) );
-            Console.WriteLine( "Perfect Ein for my rbf happened " + perfect_ein.ToString() );
+            Console.WriteLine( "  svm rbf won " + ( (double)svm_wins / (double)( svm_wins + rbf_wins ) * 100.0 ).ToString( "f2" ) + "%" );
+            Console.WriteLine( "  reg rbf won " + ( (double)rbf_wins / (double)( svm_wins + rbf_wins ) * 100.0 ).ToString( "f2" ) + "%" );
+            Console.WriteLine( "Avg Eout for svm rbf was " + avg_svm_eout.ToString( "f4" ) );
+            Console.WriteLine( "Avg Eout for reg rbf was " + avg_rbf_eout.ToString( "f4" ) );
+            Console.WriteLine( "Avg Ein  for reg rbf was " + avg_rbf_ein.ToString( "f4" ) );
+            Console.WriteLine( "Perfect Ein for reg rbf happened " + perfect_ein.ToString() );
             Console.WriteLine( "Avg lloyd's iterations was " + avg_iterations.ToString( "f2" ) );
             Console.ReadLine();
         }
@@ -339,7 +561,7 @@ namespace FinalExam
             svm.param.kernel_type = libsvm.svm_parameter.POLY;
             svm.param.coef0 = 1;
             svm.param.degree = 2;
-            svm.param.C = 100000;
+            svm.param.C = 1000000;
             svm.train();
 
             Console.WriteLine();

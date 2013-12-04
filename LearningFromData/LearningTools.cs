@@ -161,6 +161,116 @@ namespace LearningFromData
             return xi;
         }
 
+        public static DenseVector RunRegularRBF( int n, int k, Data[] training_points, Data[] mu, double gamma, double[] y, Random r )
+        {
+            DenseMatrix phi = new DenseMatrix( n, k + 1 );
+            for( int h = 0; h < n; h++ )
+            {
+                phi[h, 0] = 1.0;
+                for( int g = 0; g < k; g++ )
+                {
+                    phi[ h, g + 1 ] = Math.Exp( -1.0 * gamma * Math.Pow( training_points[h].AsDenseVector().Subtract( mu[g].AsDenseVector() ).Norm( 2 ), 2 ) );
+                }
+            }
+            return LearningTools.RunLinearRegression( n, phi, new DenseVector( y ), r );
+        }
+
+        public static int RunLloydsAlgorithm( Data[] training_points, out Data[] mu, int k, int d, Random r )
+        {
+            bool converged = false;
+            bool bad_run = false;
+            int convergence_count = 0;
+
+            // pick k random centers for clusters
+            mu = Data.CreateDataSet( k, null, r, d );
+
+            while( !converged && !bad_run )
+            {
+                convergence_count++;
+
+                // assign each data point to a cluster
+                List<int>[] clusters = new List<int>[k];
+                for( int j = 0; j < k; j++ )
+                {
+                    clusters[j] = new List<int>();
+                }
+                for( int j = 0; j < training_points.Count(); j++ )
+                {
+                    double[] distance = new double[k];
+                    for( int m = 0; m < k; m++ )
+                    {
+                        distance[m] = training_points[j].PointDistance( mu[m] );
+                    }
+                    double min = distance[0];
+                    int index = 0;
+                    for( int m = 0; m < k; m++ )
+                    {
+                        if( distance[m] < min )
+                        {
+                            index = m;
+                            min = distance[m];
+                        }
+                    }
+                    clusters[index].Add( j );
+                }
+
+                // make sure there are no empty clusters
+                for( int j = 0; j < k; j++ )
+                {
+                    if( clusters[j].Count() == 0 )
+                    {
+                        bad_run = true;
+                    }
+                }
+
+                // create new mu's
+                Data[] new_mu = new Data[k];
+                for( int j = 0; j < k; j++ )
+                {
+                    // average the points in the cluster - this becomes the new center
+                    new_mu[j] = new Data( new double[d] );
+                    for( int m = 0; m < clusters[j].Count(); m++ )
+                    {
+                        for( int mi = 0; mi < d; mi++ )
+                        {
+                            new_mu[j].x[mi] += training_points[clusters[j][m]].x[mi];
+                        }
+                    }
+                    for( int m = 0; m < d; m++ )
+                    {
+                        new_mu[j].x[m] = new_mu[j].x[m] / (double)clusters[j].Count();
+                    }
+                }
+
+                // have we converged?
+                bool difference = false;
+                for( int j = 0; j < k; j++ )
+                {
+                    if( !mu[j].Equals( new_mu[j] ) )
+                    {
+                        difference = true;
+                    }
+                }
+                if( !difference )
+                {
+                    converged = true;
+                }
+                else
+                {
+                    mu = new_mu;
+                }
+            }
+
+            if( converged )
+            {
+                return convergence_count;
+            }
+            else
+            {
+                return -1;
+            }
+        }
+
         public static RunResult RunLogisticRegression( int num_points, int num_testing_points, double learning_rate, double stop_when, Random r )
         {
             // create a line from two random points
